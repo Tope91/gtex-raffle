@@ -1,128 +1,144 @@
 (function () {
-    var numbers = [];
-    var drawn = [];
-    var spinning = false;
+  var numbers = [];
+  var drawn = [];
+  var spinning = false;
 
-    var reels = [
-      document.getElementById("reel1"),
-      document.getElementById("reel2"),
-      document.getElementById("reel3")
-    ];
-    var drawnBox = document.getElementById("drawnNumbers");
-    var spinSound = document.getElementById("spinSound");
+  var reels = [
+    document.getElementById("reel1"),
+    document.getElementById("reel2"),
+    document.getElementById("reel3")
+  ];
+  var drawnBox = document.getElementById("drawnNumbers");
+  var spinSound = document.getElementById("spinSound");
+  var dingSound = document.getElementById("dingSound");
 
-    document.getElementById("startBtn").addEventListener("click", startRaffle, false);
-    document.getElementById("drawBtn").addEventListener("click", drawNumber, false);
-    document.getElementById("resetBtn").addEventListener("click", resetRaffle, false);
+  document.getElementById("startBtn").addEventListener("click", startRaffle, false);
+  document.getElementById("drawBtn").addEventListener("click", drawNumber, false);
+  document.getElementById("resetBtn").addEventListener("click", resetRaffle, false);
 
-    function startRaffle() {
-      var min = parseInt(document.getElementById("minNum").value, 10);
-      var max = parseInt(document.getElementById("maxNum").value, 10);
+  const ITEM_HEIGHT = 360;   // height of each reel item
+  const SPIN_LOOPS = 60;     // make spin distance very long
+  const LOOPS_IN_REEL = 80;  // enough items to scroll smoothly
+  const SPIN_DURATION = 20;  // long enough so reels keep moving
+  const STOP_DELAY = 0.8;    // delay between reel stops
+  const SNAP_DURATION = 0.6; // smooth snap to number
 
-      if (isNaN(min) || isNaN(max) || min >= max) {
-        alert("Please enter a valid range (min < max).");
-        return;
+  // --- Build reels with repeated digits ---
+  function initReels() {
+    let items = "";
+    for (let loop = 0; loop < LOOPS_IN_REEL; loop++) {
+      for (let d = 0; d < 10; d++) {
+        items += '<div class="reel-item">' + d + "</div>";
       }
+    }
+    reels.forEach(r => {
+      r.innerHTML = items;
+      r.style.transition = "none";
+      r.style.transform = "translateY(0)";
+    });
+  }
+  initReels();
 
-      numbers = [];
-      for (var n = min; n <= max; n++) numbers.push(n);
+  function startRaffle() {
+    let min = parseInt(document.getElementById("minNum").value, 10);
+    let max = parseInt(document.getElementById("maxNum").value, 10);
 
-      drawn = [];
-      spinning = false;
-
-      for (var i = 0; i < reels.length; i++) {
-        var r = reels[i];
-        r.style.transition = "none";
-        r.style.transform = "translateY(0)";
-        r.innerHTML = '<div class="reel-item">X</div>';
-      }
-      drawnBox.textContent = "";
-      try { spinSound.pause(); spinSound.currentTime = 0; } catch (e) {}
+    if (isNaN(min) || isNaN(max) || min >= max) {
+      alert("Please enter a valid range (min < max).");
+      return;
     }
 
-    function drawNumber() {
-      if (spinning) return;
+    numbers = [];
+    for (let n = min; n <= max; n++) numbers.push(n);
 
-      if (numbers.length === 0) {
-        for (var i = 0; i < reels.length; i++) {
-          reels[i].innerHTML = '<div class="reel-item">All!</div>';
+    drawn = [];
+    spinning = false;
+    drawnBox.textContent = "";
+    initReels();
+    stopSound();
+  }
+
+  function drawNumber() {
+    if (spinning) return;
+    if (numbers.length === 0) {
+      alert("No more numbers to draw.");
+      return;
+    }
+
+    spinning = true;
+    let index = Math.floor(Math.random() * numbers.length);
+    let number = numbers.splice(index, 1)[0];
+    drawn.push(number);
+
+    // Always show 3 digits (zero-padded)
+    let numStr = number.toString().padStart(3, "0");
+    let digits = numStr.split("");
+
+    playSoundLoop();
+
+    // STEP 1: start all reels spinning with a long animation
+    reels.forEach((reel, i) => {
+      let spinDistance = (SPIN_LOOPS * 10) * ITEM_HEIGHT;
+
+      reel.style.transition = "none";
+      reel.style.transform = "translateY(0)";
+
+      setTimeout(function () {
+        reel.style.transition = "transform " + SPIN_DURATION + "s linear";
+        reel.style.transform = "translateY(-" + spinDistance + "px)";
+      }, 50);
+    });
+
+    // STEP 2: stop reels one by one
+    reels.forEach((reel, i) => {
+      let finalDigit = parseInt(digits[i], 10);
+
+      setTimeout(function () {
+        // cancel current spin and snap smoothly
+        reel.style.transition = "transform " + SNAP_DURATION + "s ease-out";
+        reel.style.transform = "translateY(-" + (finalDigit * ITEM_HEIGHT) + "px)";
+
+        playDing();
+
+        if (i === reels.length - 1) {
+          spinning = false;
+          drawnBox.textContent = "Drawn Numbers: " + drawn.join(", ");
+          stopSound();
         }
-        return;
-      }
+      }, 2000 + (i * STOP_DELAY * 1000)); 
+      // first stop at 2s, then stagger
+    });
+  }
 
-      spinning = true;
+  function resetRaffle() {
+    numbers = [];
+    drawn = [];
+    spinning = false;
+    drawnBox.textContent = "";
+    initReels();
+    stopSound();
+  }
 
-      // Pick a number
-      var index = Math.floor(Math.random() * numbers.length);
-      var chosen = numbers.splice(index, 1)[0];
-      drawn.push(chosen);
+  function playSoundLoop() {
+    try {
+      spinSound.loop = true;
+      spinSound.currentTime = 0;
+      spinSound.play();
+    } catch (e) {}
+  }
 
-      // Build reel content (dummy items + final chosen)
-      for (var rIndex = 0; rIndex < reels.length; rIndex++) {
-        var reel = reels[rIndex];
-        reel.style.transition = "none";
-        reel.style.transform = "translateY(0)";
-        reel.innerHTML = "";
+  function stopSound() {
+    try {
+      spinSound.loop = false;
+      spinSound.pause();
+      spinSound.currentTime = 0;
+    } catch (e) {}
+  }
 
-        var frag = document.createDocumentFragment();
-
-        for (var k = 0; k < 10; k++) {
-          var num = Math.floor(Math.random() * 90);
-          var div = document.createElement("div");
-          div.className = "reel-item";
-          div.textContent = num;
-          frag.appendChild(div);
-        }
-
-        var resultDiv = document.createElement("div");
-        resultDiv.className = "reel-item";
-        resultDiv.textContent = chosen;
-        frag.appendChild(resultDiv);
-
-        reel.appendChild(frag);
-      }
-
-      // Start sound while spinning
-      try { spinSound.currentTime = 0; spinSound.play(); } catch (e) {}
-
-      // Animate reels with slight stagger
-      for (var j = 0; j < reels.length; j++) {
-        (function (reel, i) {
-          var delay = i * 500; // 0ms, 500ms, 1000ms
-          setTimeout(function () {
-            var itemCount = reel.children.length;
-            var finalOffset = -((itemCount - 1) * 360);
-            reel.style.transition = "transform 4110ms cubic-bezier(.17,.67,.83,.67)";
-            reel.style.transform = "translateY(" + finalOffset + "px)";
-
-            if (i === reels.length - 1) {
-              // Only attach to the last reel to end the spin
-              var onEnd = function (ev) {
-                if (ev.propertyName !== "transform") return;
-                reel.removeEventListener("transitionend", onEnd);
-                spinning = false;
-                try { spinSound.pause(); } catch (e) {}
-                drawnBox.textContent = "Drawn: " + drawn.join(", ");
-              };
-              reel.addEventListener("transitionend", onEnd, false);
-            }
-          }, delay);
-        })(reels[j], j);
-      }
-    }
-
-    function resetRaffle() {
-      numbers = [];
-      drawn = [];
-      spinning = false;
-
-      for (var i = 0; i < reels.length; i++) {
-        var r = reels[i];
-        r.style.transition = "none";
-        r.style.transform = "translateY(0)";
-        r.innerHTML = '<div class="reel-item">X</div>';
-      }
-      drawnBox.textContent = "";
-      try { spinSound.pause(); spinSound.currentTime = 0; } catch (e) {}
-    }
-  })();
+  function playDing() {
+    try {
+      dingSound.currentTime = 0;
+      dingSound.play();
+    } catch (e) {}
+  }
+})();
