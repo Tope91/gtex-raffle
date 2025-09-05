@@ -103,6 +103,12 @@
       font-size: 90px;
       color: #111;
     }
+
+    .copyright{
+      font-weight: 300;
+      font-size: 14px;
+      color: #111;
+    }
   </style>
 </head>
 <body style="background: url(./bg1.png); background-size: cover;">
@@ -119,6 +125,7 @@
 
   <!-- Slot machine spin sound -->
   <audio id="spinSound" src="sounds/Slot Machine Jackpot Sound Effect.mp3" preload="auto"></audio>
+  <audio id="dingSound" src="sounds/Ding Sound Effect.mp3" preload="auto"></audio>
 
   <div class="controls">
     <input type="number" id="minNum" placeholder="Min number">
@@ -126,6 +133,9 @@
     <button id="startBtn">Start</button>
     <button id="drawBtn">Draw</button>
     <button id="resetBtn">Reset</button>
+  </div>
+  <div class="footerRightMenu">
+    <span class="copyright">@Kristoff DevWorx. All rights reserved. 2025.</span>
   </div>
 
   <script src="./script.js">
